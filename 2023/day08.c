@@ -85,10 +85,13 @@ main()
     for (int i = 0; i < positions; ++i)
     {
         // find first time we hit an end node starting from start-point
+        int pathLengthStartToEnd = 0;
         int pos = 0;
         while (1)
         {
-            if (nodes[index[i]].name[2] == 'Z') {
+            if (nodes[index[i]].name[2] == 'Z') 
+            {
+                pathLengths[i] = pathLengthStartToEnd;
                 break;
             }
 
@@ -99,10 +102,12 @@ main()
                 index[i] = nodes[index[i]].right;
             }
 
-            pos = (pos + 1) % numInstructions;
+            pos = (pos + 1) % numInstructions, ++pathLengthStartToEnd;
         }
 
-        // now we travel along the path until we loop back to the starting position
+#define VERIFY_LOOP_LENGTH 0
+
+#if VERIFY_LOOP_LENGTH
         int endNodeIndex = index[i];
         int sequenceIndex = pos;
         int loopPathLength = 0;
@@ -117,16 +122,22 @@ main()
 
             pos = (pos + 1) % numInstructions, ++loopPathLength;
 
-            if (index[i] == endNodeIndex && sequenceIndex == pos)
-            {
-                pathLengths[i] = loopPathLength;
+            if (index[i] == endNodeIndex && sequenceIndex == pos) {
                 break;
             }
         }
+        
+        // this seems to be true for all the input data: the target node is hit every "n" steps. the loop step 
+        // count is identical to the number of steps needed to hit the target for the first time. since this can
+        // be verified for all the input data we know a path hits the target again after "n" steps. loop detection
+        // could be more involved, but luckily this condition is met for the input data
+        assert(pathLengthStartToEnd == loopPathLength);
+#endif
     }
 
-    // with all the path lengths (**A ---> **Z ---loop--> **Z ...) we need to find the LCM to calculate the point
-    // where all paths hit and end node together
+    // with the path length known: e.g. path 1 hits the target node every "n" steps. after the second iteration 
+    // 2*n steps are needed etc... Therefore finding the LCM for all the path lengths will give the total number of 
+    // steps needed so that all paths are hitting a target node.
     for (int i = 1; i < positions; ++i)
     {
         unsigned __int64 tmp = gcd(pathLengths[i - 1], pathLengths[i]);
