@@ -9,7 +9,7 @@
 #define MAX_LABEL_LENGTH    8
 
 #if PART == 2
-#define MAX_LENSES          1500
+#define MAX_LENSES          280
 #endif
 
 #if PART == 2
@@ -117,11 +117,14 @@ main()
 
             if (lens) {
                 if (prev == NULL) {
+                    assert(boxes[boxIndex] == lens);
                     boxes[boxIndex] = lens->next;
                 }
                 else {
+                    assert(prev->next == lens);
                     prev->next = lens->next;
                 }
+                MM_free(lens);
             }
         }
         else
@@ -142,6 +145,7 @@ main()
             if (!lens) 
             {
                 lens = MM_alloc();
+                lens->next = NULL;
                 strncpy(lens->label, label, sizeof(label));
 
                 if (!prev) {
