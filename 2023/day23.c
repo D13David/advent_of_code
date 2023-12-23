@@ -138,14 +138,15 @@ int findMaxPathLength(int nodeIndex)
 
     visited[posY][posX] = 1;
 
-    int result = -1;
+    int result = -99999;
 
     for (int i = 0; i < numEdges[nodeIndex]; ++i)
     {
         node_t target = nodes[edges[nodeIndex][i].target];
         if (!visited[target.y][target.x])
         {
-            result = MAX(result, findMaxPathLength(edges[nodeIndex][i].target) + edges[nodeIndex][i].steps);
+            int path = findMaxPathLength(edges[nodeIndex][i].target) + edges[nodeIndex][i].steps;
+            result = MAX(result, path);
         }
     }
 
