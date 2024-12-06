@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <assert.h>
 
 //#define USE_TEST_DATA
 
@@ -27,13 +28,9 @@ const char* data =
 
 #define PART 2
 
-enum { DIR_NORTH, DIR_EAST, DIR_SOUTH, DIR_WEST, NUM_DIRECTIONS };
+#define MAX_RESET_ITEMS 50
 
-#define FLAG_VISITED_NORTH  0x01
-#define FLAG_VISITED_EAST   0x02
-#define FLAG_VISITED_SOUTH  0x04
-#define FLAG_VISITED_WEST   0x08
-#define FLAG_OBSTACLE       0x10
+enum { DIR_NORTH, DIR_EAST, DIR_SOUTH, DIR_WEST, NUM_DIRECTIONS };
 
 typedef struct guard_s
 {
@@ -45,18 +42,27 @@ typedef struct guard_s
 typedef struct fieldInfo_s
 {
     guard_t PrecomputedGuardState[NUM_DIRECTIONS];
-    uint8_t Flags;
+    bool    IsObstacle;
 } fieldInfo_t;
+
+typedef struct fieldResetItem_s
+{
+    int Index;
+    uint8_t Dir;
+} fieldResetItem_t;
 
 fieldInfo_t g_MapBase[MAP_WIDTH * MAP_HEIGHT];
 fieldInfo_t g_Map[MAP_WIDTH * MAP_HEIGHT];
+uint8_t g_Visited[MAP_WIDTH * MAP_HEIGHT];
+fieldResetItem_t g_FieldResetItemCache[MAX_RESET_ITEMS];
+uint32_t g_NbFieldResetItems;
 
 char g_TraceMap[MAP_WIDTH * MAP_HEIGHT];
 
 #define TRACE(state, check, move) {                                                       \
         while (true) {                                                                    \
             int index = (state)->PosY * MAP_WIDTH + (state)->PosX;                        \
-            if ((state)->check || (g_Map[index].Flags & FLAG_OBSTACLE)) { \
+            if ((state)->check || g_Map[index].IsObstacle) { \
                 break;                                                                    \
             }                                                                             \
             (state)->move;                                                                \
@@ -113,6 +119,16 @@ static void traceSteps(int posX, int posY, int targetX, int targetY, int dir)
     }
 }
 
+static void pushFieldResetItem(int index, int dir)
+{
+    assert(g_NbFieldResetItems < MAX_RESET_ITEMS);
+    g_FieldResetItemCache[g_NbFieldResetItems++] = (fieldResetItem_t){ .Index = index, .Dir = dir };
+}
+static void resetFieldResetItemCache()
+{
+    g_NbFieldResetItems = 0;
+}
+
 static void precomputeObstacleState(fieldInfo_t* map, int obstacleIndex)
 {
     int x = obstacleIndex % MAP_WIDTH; int y = obstacleIndex / MAP_WIDTH;
@@ -120,9 +136,9 @@ static void precomputeObstacleState(fieldInfo_t* map, int obstacleIndex)
     fieldInfo_t* field = &map[obstacleIndex];
 
     // new obstacle... mark it as such
-    bool isObstacleAddedToBase = (field->Flags & FLAG_OBSTACLE) == 0;
+    bool isObstacleAddedToBase = (field->IsObstacle == false);
     if (isObstacleAddedToBase) {
-        field->Flags |= FLAG_OBSTACLE;
+        field->IsObstacle = true;
     }
 
     // ----
@@ -141,8 +157,10 @@ static void precomputeObstacleState(fieldInfo_t* map, int obstacleIndex)
 
         for (int i = x + 1; i <= guard.PosX; ++i) 
         {
-            fieldInfo_t* otherField = &map[(y + 1) * MAP_WIDTH + i];
-            if (otherField->Flags & FLAG_OBSTACLE) {
+            int index = (y + 1) * MAP_WIDTH + i;
+            fieldInfo_t* otherField = &map[index];
+            if (otherField->IsObstacle) {
+                pushFieldResetItem(index, DIR_SOUTH);
                 otherField->PrecomputedGuardState[DIR_SOUTH] = (guard_t){ .PosX = x, .PosY = y, .Dir = DIR_WEST };
             }
         }   
@@ -164,8 +182,10 @@ static void precomputeObstacleState(fieldInfo_t* map, int obstacleIndex)
 
         for (int i = y + 1; i <= guard.PosY; ++i)
         {
-            fieldInfo_t* otherField = &map[i * MAP_WIDTH + x - 1];
-            if (otherField->Flags & FLAG_OBSTACLE) {
+            int index = i * MAP_WIDTH + x - 1;
+            fieldInfo_t* otherField = &map[index];
+            if (otherField->IsObstacle) {
+                pushFieldResetItem(index, DIR_WEST);
                 otherField->PrecomputedGuardState[DIR_WEST] = (guard_t){ .PosX = x, .PosY = y, .Dir = DIR_NORTH };
             }
         }
@@ -187,8 +207,10 @@ static void precomputeObstacleState(fieldInfo_t* map, int obstacleIndex)
 
         for (int i = x - 1; i >= guard.PosX; --i)
         {
-            fieldInfo_t* otherField = &map[(y - 1) * MAP_WIDTH + i];
-            if (otherField->Flags & FLAG_OBSTACLE) {
+            int index = (y - 1) * MAP_WIDTH + i;
+            fieldInfo_t* otherField = &map[index];
+            if (otherField->IsObstacle) {
+                pushFieldResetItem(index, DIR_NORTH);
                 otherField->PrecomputedGuardState[DIR_NORTH] = (guard_t){ .PosX = x, .PosY = y, .Dir = DIR_EAST };
             }
         }
@@ -210,8 +232,10 @@ static void precomputeObstacleState(fieldInfo_t* map, int obstacleIndex)
 
         for (int i = y - 1; i >= guard.PosY; --i)
         {
-            fieldInfo_t* otherField = &map[i * MAP_WIDTH + x + 1];
-            if (otherField->Flags & FLAG_OBSTACLE) {
+            int index = i * MAP_WIDTH + x + 1;
+            fieldInfo_t* otherField = &map[index];
+            if (otherField->IsObstacle) {
+                pushFieldResetItem(index, DIR_EAST);
                 otherField->PrecomputedGuardState[DIR_EAST] = (guard_t){ .PosX = x, .PosY = y, .Dir = DIR_SOUTH };
             }
         }
@@ -225,14 +249,14 @@ static void precomputeMapState()
     {
         if (data[i] == '#') 
         {
-            g_MapBase[i].Flags = FLAG_OBSTACLE;
-            g_Map[i].Flags = FLAG_OBSTACLE;
+            g_MapBase[i].IsObstacle = true;
+            g_Map[i].IsObstacle = true;
         }
     }
 
     // then precompute obstacles field states
     for (int i = 0; i < MAP_HEIGHT*MAP_HEIGHT; ++i) {
-        if (g_MapBase[i].Flags & FLAG_OBSTACLE) {
+        if (g_MapBase[i].IsObstacle) {
             precomputeObstacleState(g_MapBase, i);
         }
     }
@@ -259,12 +283,12 @@ bool simulate(guard_t guard, bool fillTraceMap)
         int dir = guard.Dir;
 
         // player approached the obstacle from this direction already, so we found a loop
-        if (field->Flags & (1 << dir)) {
+        if (g_Visited[guard.PosY * MAP_WIDTH + guard.PosX] & (1 << dir)) {
             loop = true;
             break;
         }
 
-        field->Flags |= (1 << dir);
+        g_Visited[guard.PosY * MAP_WIDTH + guard.PosX] |= (1 << dir);
 
         if (fillTraceMap) {
             traceSteps(guard.PosX, guard.PosY, field->PrecomputedGuardState[dir].PosX, field->PrecomputedGuardState[dir].PosY, dir);
@@ -307,6 +331,8 @@ int main()
     }
     printf("%d\n", result);
 #else
+    memcpy(g_Map, g_MapBase, sizeof(g_Map));
+
     int loops = 0;
     for (int i = 0; i < MAP_WIDTH * MAP_HEIGHT; ++i)
     {
@@ -314,13 +340,22 @@ int main()
             continue;
         }
 
-        memcpy(g_Map, g_MapBase, sizeof(g_Map));
+        resetFieldResetItemCache();
         precomputeObstacleState(g_Map, i);
 
+        // reset map state to base state
+        memset(g_Visited, 0, sizeof(g_Visited));
+        
         playerState = (guard_t){ .PosX = startPosX, .PosY = startPosY, .Dir = DIR_NORTH };
         if (simulate(playerState, false)) {
             loops++;
         }
+
+        for (int j = 0; j < g_NbFieldResetItems; ++j) {
+            fieldResetItem_t item = g_FieldResetItemCache[j];
+            g_Map[item.Index].PrecomputedGuardState[item.Dir] = g_MapBase[item.Index].PrecomputedGuardState[item.Dir];
+        }
+        g_Map[i].IsObstacle = false;
     }
 
     printf("%d\n", loops);
