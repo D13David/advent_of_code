@@ -24,9 +24,7 @@ typedef struct fieldInfo_s
 
 fieldInfo_t g_Map[MAP_WIDTH * MAP_HEIGHT];
 
-#if PART == 1
 char g_TraceMap[MAP_WIDTH * MAP_HEIGHT];
-#endif
 
 #define TRACE(state, check, move) {                                                       \
         while (true) {                                                                    \
@@ -58,7 +56,6 @@ static void traceNorth(guard_t* playerState, int extraObstructionIndex)
     TRACE(playerState, PosY < 0, PosY--);
 }
 
-#if PART == 1
 static void traceSteps(int posX, int posY, int targetX, int targetY, int dir)
 {
     int dx = 0, dy = 0;
@@ -80,18 +77,17 @@ static void traceSteps(int posX, int posY, int targetX, int targetY, int dir)
         posY += dy;
     }
 }
-#endif
 
-static void precomputeMapState(int extraObstructionIndex, guard_t* playerState)
+static void precomputeMapState(int extraObstructionIndex, guard_t* playerState, bool fillTraceMap)
 {
     int posX = playerState->PosX, posY = playerState->PosY;
 
     // we trace the player state to the next obstacle as the actual starting point
     traceNorth(playerState, extraObstructionIndex);
 
-#if PART == 1
-    traceSteps(posX - 1, posY, playerState->PosX, playerState->PosY, DIR_WEST);
-#endif
+    if (fillTraceMap) {
+        traceSteps(posX - 1, posY, playerState->PosX, playerState->PosY, DIR_WEST);
+    }
 
     for (int i = 0; i < MAP_HEIGHT*MAP_HEIGHT; ++i)
     {
@@ -125,7 +121,7 @@ static void precomputeMapState(int extraObstructionIndex, guard_t* playerState)
     }
 }
 
-bool simulate(guard_t guard)
+bool simulate(guard_t guard, bool fillTraceMap)
 {
     bool loop = false;
 
@@ -142,9 +138,9 @@ bool simulate(guard_t guard)
 
         field->Visited[dir] = true;
 
-#if PART == 1
-        traceSteps(guard.PosX, guard.PosY, field->PrecomputedGuardState[dir].PosX, field->PrecomputedGuardState[dir].PosY, dir);
-#endif
+        if (fillTraceMap) {
+            traceSteps(guard.PosX, guard.PosY, field->PrecomputedGuardState[dir].PosX, field->PrecomputedGuardState[dir].PosY, dir);
+        }
 
         guard = field->PrecomputedGuardState[dir];
 
@@ -171,11 +167,10 @@ int main()
 
     guard_t playerState = { .PosX = startPosX, .PosY = startPosY, .Dir = DIR_NORTH };
 
-#if PART == 1
-    precomputeMapState(-1, &playerState);
-    
-    simulate(playerState);
+    precomputeMapState(-1, &playerState, true);
+    simulate(playerState, true);
 
+#if PART == 1
     int result = 0;
     for (int i = 0; i < MAP_HEIGHT * MAP_HEIGHT; ++i) {
         if (g_TraceMap[i] == 'X') {
@@ -187,14 +182,14 @@ int main()
     int loops = 0;
     for (int i = 0; i < MAP_WIDTH * MAP_HEIGHT; ++i)
     {
-        if (data[i] != '.') {
+        if (g_TraceMap[i] != 'X') {
             continue;
         }
 
         playerState = (guard_t){ .PosX = startPosX, .PosY = startPosY, .Dir = DIR_NORTH };
-        precomputeMapState(i, &playerState);
+        precomputeMapState(i, &playerState, false);
 
-        if (simulate(playerState)) {
+        if (simulate(playerState, false)) {
             loops++;
         }
     }
