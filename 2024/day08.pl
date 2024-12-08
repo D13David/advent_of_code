@@ -73,7 +73,7 @@ my @data1 = (
 my $part = 2;
 
 my @antennas = ();
-my %antidotes = ();
+my %antinotes = ();
 
 sub IsInRange {
     return ($_[0] >= 0 and $_[0] < @data and $_[1] >= 0 and $_[1] < length($data[0]));
@@ -83,13 +83,13 @@ sub SpatialHash {
     return ($_[0]*$_[0]) * 32767 + ($_[1]*$_[1]);
 }
 
-sub AddAntidotes {
+sub AddAntinotes {
     my $px = $_[0]; my $py = $_[1];
     my $vx = $_[2]; my $vy = $_[3];
     my $inRange;
     
     if ($part eq 2) {
-        $antidotes{SpatialHash($px, $py)} = 1;
+        $antinotes{SpatialHash($px, $py)} = 1;
     }
     
     do {
@@ -98,7 +98,7 @@ sub AddAntidotes {
         
         $inRange = IsInRange($px, $py);
         if ($inRange) {
-            $antidotes{SpatialHash($px, $py)} = 1;
+            $antinotes{SpatialHash($px, $py)} = 1;
         }
     } while ($part eq 2 and $inRange);
 }
@@ -127,9 +127,9 @@ for (my $i = 0; $i < @antennas; $i++) {
         
         my $vx = $antennas[$j]->{posX} - $antennas[$i]->{posX};
         my $vy = $antennas[$j]->{posY} - $antennas[$i]->{posY};
-        AddAntidotes($antennas[$i]->{posX}, $antennas[$i]->{posY}, -$vx, -$vy);
-        AddAntidotes($antennas[$j]->{posX}, $antennas[$j]->{posY},  $vx,  $vy);
+        AddAntinotes($antennas[$i]->{posX}, $antennas[$i]->{posY}, -$vx, -$vy);
+        AddAntinotes($antennas[$j]->{posX}, $antennas[$j]->{posY},  $vx,  $vy);
     }
 }
 
-print(scalar(keys %antidotes));
+print(scalar(keys %antinotes));
