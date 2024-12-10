@@ -16,42 +16,23 @@ function findTrailheads(data)
   return trailheads
 end
 
-function calculateScoreForPath(data, startX, startY)
+function calculateScoreForPaths(data, startX, startY)
   local directions = {{-1,0},{1,0},{0,-1},{0,1}}
   local queue = {pack(startX, startY)}
-  local visited = {}
   local endpointsReached = {}
-  
-  local function markVisited(x, y)
-    visited[y] = visited[y] or {}
-    visited[y][x] = true
-  end
-  
-  local function hasVisited(x, y)
-    return visited[y] and visited[y][x]
-  end
-  
-  markVisited(startX, startY)
   
   while #queue > 0 do
     local posX, posY = unpack(table.remove(queue, 1))
-    
     for _, direction in ipairs(directions) do
       local nextX, nextY = posX + direction[1], posY + direction[2]
       
-      if nextX >= 1 and nextX <= #data[1] and nextY >= 1 and nextY <= #data and not hasVisited(nextX, nextY) then
-        if data[nextY][nextX] == data[posY][posX] + 1 then
-          if data[nextY][nextX] == 9 then
-            local key = nextY * #data + nextX
-            endpointsReached[key] = (endpointsReached[key] or 0) + 1
-          end
-          
-          if PART == 1 then
-            markVisited(nextX, nextY)
-          end
-          
-          table.insert(queue, pack(nextX, nextY))
+      if nextX >= 1 and nextX <= #data[1] and nextY >= 1 and nextY <= #data and data[nextY][nextX] == data[posY][posX] + 1 then
+        if data[nextY][nextX] == 9 then
+          local key = nextY * #data + nextX
+          endpointsReached[key] = (endpointsReached[key] or 0) + 1
         end
+        
+        table.insert(queue, pack(nextX, nextY))
       end
     end
   end
@@ -135,7 +116,7 @@ local trailheads = findTrailheads(g_TopoData)
 local sum = 0 
 for _, trailhead in ipairs(trailheads) do
   local x, y = unpack(trailhead)
-  sum = sum + calculateScoreForPath(g_TopoData, x, y)[PART];
+  sum = sum + calculateScoreForPaths(g_TopoData, x, y)[PART];
 end
   
 print(sum)
