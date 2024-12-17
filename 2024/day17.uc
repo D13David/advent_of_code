@@ -1,4 +1,16 @@
-class DayXX extends Mutator;
+class AocScriptedTexture expands ClientScriptedTexture;
+
+var() Font Font;
+var() color FontColor;
+var() bool bCaps;
+var() int PixelsPerSecond;
+var() int ScrollWidth;
+var() float YPos;
+var() bool bResetPosOnTextChange;
+
+var string OldText;
+var int Position;
+var float LastDrawTime;
 
 struct I64
 {
@@ -8,11 +20,11 @@ struct I64
 
 struct VmContext
 {
-    var I64     RegA;
-    var I64     RegB;
-    var I64     RegC;    
-    var int     IP;
-    var string  Prg;
+  var I64     RegA;
+  var I64     RegB;
+  var I64     RegC;
+  var int     IP;
+  var string  Prg;
 };
 
 var VmContext Context;
@@ -21,7 +33,7 @@ var VmContext Context;
 // unusual huge number math utils for christmas 3-bit(tm)
 function I64 Set64(int high, int low)
 {
-  local I64 result;  
+  local I64 result;
   result.high = high;
   result.low = low;
   return result;
@@ -103,7 +115,7 @@ function int ResolveComboParam(int value)
   return 0;
 }
 
-function Run()
+function string Run()
 {
   local int prgLength;
   local int i;
@@ -150,7 +162,7 @@ function Run()
     Context.IP += 2;
   }
   
-  Log(output);
+  return Mid(output, 0, Len(output)-1);
 }
 
 function I64 RestoreRegisterValue(string program)
@@ -212,17 +224,38 @@ function I64 RestoreRegisterValue(string program)
   return Set64(0, 0);
 }
 
-function PostBeginPlay()
+simulated event RenderTexture(ScriptedTexture Tex)
 {
+  local string Text;
+  local PlayerReplicationInfo Leading, PRI;
+  local int i;
   local string program;
-  
-  program = "2411750314455530";
-  
-  // part 1
-  ResetVm(Set64(0, 51571418), Set64(0, 0), Set64(0, 0), program);
-  Run();
 
-  // part 2
+  if(LastDrawTime == 0)
+      Position = Tex.USize;
+  else
+      Position -= (Level.TimeSeconds-LastDrawTime) * PixelsPerSecond;
+
+  if(Position < -ScrollWidth)
+      Position = Tex.USize;
+
+  LastDrawTime = Level.TimeSeconds;
+
+  program = "2411750314455530";
+  ResetVm(Set64(0, 51571418), Set64(0, 0), Set64(0, 0), program);
+  Text = "Part 1: " $ Run();
+  
   ResetVM(RestoreRegisterValue(program), Set64(0, 0), Set64(0, 0), program);
-  Run();
+  Text = Text $ " " $ "Part 2: " $ Run();
+
+  if(bCaps)
+      Text = Caps(Text);
+
+  if(Text != OldText && bResetPosOnTextChange)
+  {
+      Position = Tex.USize;
+      OldText = Text;
+  }
+
+  Tex.DrawColoredText( Position, YPos, Text, Font, FontColor );
 }
