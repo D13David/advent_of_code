@@ -55,9 +55,9 @@ fun countValidCheats(distanceMap: IntArray, width: Int, maxCheatTime: Int) : Int
             val y1 = second / width;
             
             val cheatDistInPicoSeconds = abs(x1 - x0) + abs(y1 - y0);
-            val remainingDistanceToEnd = (distanceMap[first] - distanceMap[second]) - cheatDistInPicoSeconds;
+            val savedPicoSeconds = (distanceMap[first] - distanceMap[second]) - cheatDistInPicoSeconds;
             
-            if (cheatDistInPicoSeconds <= maxCheatTime && remainingDistanceToEnd >= 100) {
+            if (cheatDistInPicoSeconds <= maxCheatTime && savedPicoSeconds >= 100) {
                 validCheats++;
             }
         }
@@ -212,17 +212,17 @@ fun main() {
     val width = map[0].length;
     val distanceMap = IntArray(map.size * width) { Int.MAX_VALUE }
     
-    var endPosition = Pair(0, 0)
+    var startPosition = Pair(0, 0)
     for (y in map.indices) {
         for (x in map[y].indices) {
-            if (map[y][x] == 'E') {
-                endPosition = Pair(x, y)
+            if (map[y][x] == 'S') {
+                startPosition = Pair(x, y)
                 break
             }
         }
     }
     
-    buildDistanceMap(map, endPosition, distanceMap);
+    buildDistanceMap(map, startPosition, distanceMap);
     
     val maxCheatTime = if (PART == 1) 2 else 20
     println(countValidCheats(distanceMap, width, maxCheatTime))
